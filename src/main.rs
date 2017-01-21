@@ -9,6 +9,7 @@ extern crate pad;
 extern crate scribe;
 extern crate regex;
 extern crate syntect;
+extern crate unicode_segmentation;
 
 #[macro_use]
 extern crate error_chain;
