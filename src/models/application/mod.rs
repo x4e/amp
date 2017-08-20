@@ -1,5 +1,6 @@
 pub mod modes;
 mod clipboard;
+mod log;
 mod preferences;
 
 // Published API
@@ -18,6 +19,7 @@ use scribe::{Buffer, Workspace};
 use view::{self, StatusLineData, View};
 use self::clipboard::Clipboard;
 use git2::Repository;
+use self::log::Log;
 
 pub enum Mode {
     Confirm(ConfirmMode),
@@ -45,6 +47,7 @@ pub struct Application {
     pub error: Option<Error>,
     pub preferences: Rc<RefCell<Preferences>>,
     key_map: KeyMap,
+    log: Option<Log>,
 }
 
 impl Application {
@@ -110,6 +113,7 @@ impl Application {
                error: None,
                preferences: preferences,
                key_map: key_map,
+               log: None,
            })
     }
 
