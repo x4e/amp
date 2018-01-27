@@ -81,6 +81,7 @@ branches:
     # release tags
     - /^\d+\.\d+\.\d+.*$/
     - master
+    - travis
 
 addons:
   apt:
