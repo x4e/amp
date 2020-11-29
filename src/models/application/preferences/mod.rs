@@ -30,6 +30,9 @@ const THEME_KEY: &str = "theme";
 const THEME_PATH: &str = "themes";
 const TYPES_KEY: &str = "types";
 const TYPES_SYNTAX_KEY: &str = "syntax";
+const REMOVE_TRAILING_WHITESPACE_KEY: &str = "remove_trailing_whitespace";
+const ENSURE_TRAILING_NEWLINE_KEY: &str = "ensure_trailing_newline";
+const USE_EDITORCONFIG_KEY: &str = "use_editorconfig";
 
 /// Loads, creates, and provides default values for application preferences.
 /// Values are immutable once loaded, with the exception of those that provide
@@ -157,6 +160,19 @@ impl Preferences {
     }
 
     pub fn tab_width(&self, path: Option<&PathBuf>) -> usize {
+        if let Some(value) = self.get_editorconfig(path).and_then(|p| p.indent_size) {
+            match value {
+                editorconfig::IndentSize::Tab => {
+                    // If indent_size = tab, then use tab_width
+                    if let Some(value) = self.get_editorconfig(path).and_then(|p| p.tab_width) {
+                        // If tab_width was specified, use that - otherwise fall back to editor preferences.
+                        return value;
+                    }
+                },
+                editorconfig::IndentSize::Width(value) => return value,
+            }
+        }
+
         self.data
             .as_ref()
             .and_then(|data| {
@@ -189,6 +205,10 @@ impl Preferences {
     }
 
     pub fn soft_tabs(&self, path: Option<&PathBuf>) -> bool {
+        if let Some(value) = self.get_editorconfig(path).and_then(|p| p.indent_style) {
+            return value == editorconfig::IndentStyle::Space;
+        }
+
         self.data
             .as_ref()
             .and_then(|data| {
@@ -312,6 +332,81 @@ impl Preferences {
         open::exclusions::parse(exclusions)
             .chain_err(|| "Failed to parse default open mode exclusions")
             .map(Some)
+    }
+
+    pub fn remove_trailing_whitespace(&self, path: Option<&PathBuf>) -> bool {
+        if let Some(value) = self.get_editorconfig(path).and_then(|p| p.trim_trailing_whitespace) {
+            return value;
+        }
+
+        self.data
+            .as_ref()
+            .and_then(|data| if let Yaml::Boolean(remove_trailing) = data[REMOVE_TRAILING_WHITESPACE_KEY] {
+                          Some(remove_trailing)
+                      } else {
+                          None
+                      })
+            .unwrap_or_else(|| {
+                self.default[REMOVE_TRAILING_WHITESPACE_KEY].as_bool()
+                    .expect("Couldn't find default remove_trailing_whitespace setting!")
+            })
+    }
+
+    pub fn ensure_trailing_newline(&self, path: Option<&PathBuf>) -> bool {
+        if let Some(value) = self.get_editorconfig(path).and_then(|p| p.insert_final_newline) {
+            return value;
+        }
+
+        self.data
+            .as_ref()
+            .and_then(|data| if let Yaml::Boolean(final_newline) = data[ENSURE_TRAILING_NEWLINE_KEY] {
+                          Some(final_newline)
+                      } else {
+                          None
+                      })
+            .unwrap_or_else(|| {
+                self.default[ENSURE_TRAILING_NEWLINE_KEY].as_bool()
+                    .expect("Couldn't find default ensure_trailing_newline setting!")
+            })
+    }
+
+    pub fn use_editorconfig(&self) -> bool {
+        if self.editorconfig.is_none() {
+            return false;
+        }
+
+        self.data
+            .as_ref()
+            .and_then(|data| if let Yaml::Boolean(use_ec) = data[USE_EDITORCONFIG_KEY] {
+                          Some(use_ec)
+                      } else {
+                          None
+                      })
+            .unwrap_or_else(|| {
+                self.default[USE_EDITORCONFIG_KEY].as_bool()
+                    .expect("Couldn't find default use_editorconfig setting!")
+            })
+    }
+
+    /// Disable .editorconfig support on test configurations to avoid a lot of false test-failures.
+    #[cfg(test)]
+    fn get_editorconfig(&self, _path: Option<&PathBuf>) -> Option<&editorconfig::Section> {
+        None
+    }
+
+    /// Returns the applicable .editorconfig section for a specific file.
+    #[cfg(not(test))]
+    fn get_editorconfig(&self, path: Option<&PathBuf>) -> Option<&editorconfig::Section> {
+        if self.use_editorconfig() {
+            let path = path?.to_str()?;
+
+            // If the editorconfig could have rules for this file, return them.
+            self.editorconfig
+                .as_ref()?
+                .get(&*path)
+        } else {
+            None
+        }
     }
 }
 
@@ -661,6 +756,30 @@ mod tests {
 
         assert_eq!(preferences.line_comment_prefix(&PathBuf::from("preferences.abc")),
                    None);
+    }
+
+    #[test]
+    fn preferences_returns_user_defined_remove_trailing_whitespace() {
+        let data = YamlLoader::load_from_str("remove_trailing_whitespace: false").unwrap();
+        let preferences = Preferences::new(data.into_iter().nth(0));
+
+        assert_eq!(preferences.remove_trailing_whitespace(Some(&PathBuf::from("preferences.rs"))), false);
+    }
+
+    #[test]
+    fn preferences_returns_user_defined_ensure_trailing_newline() {
+        let data = YamlLoader::load_from_str("ensure_trailing_newline: false").unwrap();
+        let preferences = Preferences::new(data.into_iter().nth(0));
+
+        assert_eq!(preferences.ensure_trailing_newline(Some(&PathBuf::from("preferences.rs"))), false);
+    }
+
+    #[test]
+    fn preferences_returns_user_defined_use_editorconfig() {
+        let data = YamlLoader::load_from_str("use_editorconfig: false").unwrap();
+        let preferences = Preferences::new(data.into_iter().nth(0));
+
+        assert_eq!(preferences.use_editorconfig(), false);
     }
 
     #[test]
