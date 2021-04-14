@@ -33,8 +33,8 @@ lazy_static = "1.2.0"
 mio = "0.6"
 
 [dependencies.scribe]
-git = "https://github.com/christoph-heiss/scribe.git"
-branch = "syntect-update"
+git = "https://github.com/x4e/scribe.git"
+branch = "master"
 
 [dependencies.signal-hook]
 version = "0.1.9"

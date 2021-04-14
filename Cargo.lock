@@ -926,7 +926,7 @@ dependencies = [
 [[package]]
 name = "scribe"
 version = "0.7.2"
-source = "git+https://github.com/christoph-heiss/scribe.git?branch=syntect-update#b6664ae3aa47b6355b58b7a9e80fc2d2fdc780ba"
+source = "git+https://github.com/x4e/scribe.git?branch=master#80a1090a1bcbddbed76a89f6a24d503f0d78dd13"
 dependencies = [
  "error-chain 0.10.0",
  "luthor",
